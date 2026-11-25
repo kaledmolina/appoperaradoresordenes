@@ -51,17 +51,21 @@ class OrderModel {
   final List<PhotoModel> fotos;
   final String? signatureUrl;
 
+  /// Debe coincidir con `Orden::TIPO_ORDEN_OPTIONS` del backend.
   static const Map<String, String> tipoOrdenOptions = {
-    '025': '025 REVISIÓN TÉCNICA',
-    '033': '033 RECONEXIÓN',
-    '037': '037 CAMBIO CONTRASEÑA',
-    '038': '038 TRASLADO INTERNO',
+    '001': '001 INSTALACIÓN',
+    '002': '002 RETIRO',
     '004': '004 SUSPENSIÓN',
     '005': '005 RECONEXIÓN',
     '010': '010 TRASLADO',
     '018': '018 CAMBIO DE EQUIPO',
-    '001': '001 INSTALACIÓN',
-    '002': '002 RETIRO',
+    '025': '025 REVISIÓN TÉCNICA',
+    '033': '033 RECONEXIÓN MANTENIMIENTO',
+    '034': '034 RECONEXIÓN INSTALACIÓN',
+    '037': '037 CAMBIO CONTRASEÑA',
+    '038': '038 TRASLADO INTERNO',
+    '039': '039 ESCALAMIENTO',
+    '040': '040 TRASLADO INSTALACIÓN',
   };
 
   /// El servicio que realmente se instala/atiende en esta orden.
