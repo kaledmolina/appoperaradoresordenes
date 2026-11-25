@@ -4,6 +4,7 @@ import '../models/order_model.dart';
 import '../theme/app_theme.dart';
 import 'status_badge.dart';
 import 'priority_badge.dart';
+import 'service_type_badge.dart';
 
 class OrderCard extends StatelessWidget {
   final OrderModel order;
@@ -113,6 +114,54 @@ class OrderCard extends StatelessWidget {
                       ),
                     ],
                   ),
+                // Código de contrato y plan contratado
+                if (order.codigoContrato != null || order.planInternet != null) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      if (order.codigoContrato != null) ...[
+                        const Icon(Icons.badge_outlined, size: 15, color: AppTheme.textSecondary),
+                        const SizedBox(width: 5),
+                        Text(
+                          'Cód. ${order.codigoContrato}',
+                          style: GoogleFonts.inter(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF334155),
+                          ),
+                        ),
+                      ],
+                      if (order.codigoContrato != null && order.planInternet != null)
+                        const SizedBox(width: 12),
+                      if (order.planInternet != null) ...[
+                        const Icon(Icons.router_outlined, size: 15, color: AppTheme.textSecondary),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            order.planInternet!,
+                            style: GoogleFonts.inter(
+                              fontSize: 12.5,
+                              color: AppTheme.textSecondary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 8),
+                // Servicio real de la orden (lo que instala el técnico)
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    ServiceTypeBadge(order: order, compact: true),
+                    if (order.esOrdenManual) const ManualOrderTag(compact: true),
+                  ],
+                ),
                 const SizedBox(height: 10),
                 // Request Type / Solicitud Chip & Photo Count
                 Row(

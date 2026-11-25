@@ -8,6 +8,7 @@ import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/status_badge.dart';
 import '../widgets/priority_badge.dart';
+import '../widgets/service_type_badge.dart';
 import 'photo_viewer_screen.dart';
 
 class OrderDetailScreen extends StatefulWidget {
@@ -215,6 +216,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 _buildInfoRow('Cliente', _order!.nombreCliente, isHighlight: true),
+                                if (_order!.codigoContrato != null)
+                                  _buildInfoRow('Código de Contrato', _order!.codigoContrato!, isHighlight: true),
+                                if (_order!.planInternet != null) _buildInfoRow('Plan', _order!.planInternet!),
                                 if (_order!.cedula != null) _buildInfoRow('Cédula / NIT', _order!.cedula!),
                                 if (_order!.telefono != null && _order!.telefono!.isNotEmpty) ...[
                                   const SizedBox(height: 8),
@@ -271,6 +275,35 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 _buildInfoRow('Tipo de Orden', _order!.tipoOrdenLabel, isHighlight: true),
+                                if (_order!.esOrdenManual) _buildInfoRow('Origen', 'Orden manual (creada en el panel)'),
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    SizedBox(
+                                      width: 120,
+                                      child: Text(
+                                        'Tipo de Servicio',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 12,
+                                          color: AppTheme.textMuted,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Wrap(
+                                        spacing: 6,
+                                        runSpacing: 6,
+                                        crossAxisAlignment: WrapCrossAlignment.center,
+                                        children: [
+                                          ServiceTypeBadge(order: _order!),
+                                          if (_order!.esOrdenManual) const ManualOrderTag(),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
                                 if (_order!.solicitudSuscriptor != null)
                                   _buildInfoRow('Solicitud Suscriptor', _order!.solicitudSuscriptor!, isHighlight: true),
                                 if (_order!.observacion != null && _order!.observacion!.isNotEmpty)

@@ -6,6 +6,8 @@ class OrderModel {
   final int? clienteId;
   final String nombreCliente;
   final String? cedula;
+  final String? codigoContrato;
+  final String? planInternet;
   final String? direccion;
   final String? barrio;
   final String? telefono;
@@ -14,6 +16,14 @@ class OrderModel {
 
   final String? tipoOrden;
   final String? tipoFuncion;
+  final String? tipoServicio;
+
+  /// Columna 'tipo' de la orden: 'TV' o 'CAMARA' cuando se creó manualmente
+  /// desde los recursos de Órdenes de TV / Órdenes de Cámara del panel.
+  final String? tipo;
+
+  /// false = orden creada manualmente en el panel (no proviene de Enlace).
+  final bool esEnlace;
   final String? solicitudSuscriptor;
   final String? observacion;
   final String? reportesNoc;
@@ -54,6 +64,53 @@ class OrderModel {
     '002': '002 RETIRO',
   };
 
+  /// El servicio que realmente se instala/atiende en esta orden.
+  /// El cálculo del plan lo hace la API (`tipo_servicio`); aquí solo se resuelven
+  /// las órdenes manuales de TV/Cámara, que no dependen del plan del cliente.
+  String get tipoServicioNormalizado {
+    final tipoRegistro = (tipo ?? '').trim().toUpperCase();
+    if (tipoRegistro == 'TV') return 'TV';
+    if (tipoRegistro == 'CAMARA' || tipoRegistro == 'CÁMARA') return 'CAMARA';
+
+    switch ((tipoServicio ?? '').trim().toUpperCase()) {
+      case 'COMBO_AUTOMONITOREO':
+      case 'INTERNET_TV_AUTOMONITOREO':
+        return 'COMBO_AUTOMONITOREO';
+      case 'INTERNET_AUTOMONITOREO':
+      case 'CAMARA':
+      case 'CÁMARA':
+        return 'INTERNET_AUTOMONITOREO';
+      case 'COMBO':
+        return 'COMBO';
+      case 'TV':
+        return 'TV';
+      case 'INTERNET':
+      default:
+        return 'INTERNET';
+    }
+  }
+
+  String get tipoServicioDisplay {
+    switch (tipoServicioNormalizado) {
+      case 'COMBO_AUTOMONITOREO':
+        return 'TV + Internet + Automonitoreo';
+      case 'INTERNET_AUTOMONITOREO':
+        return 'Internet + Automonitoreo';
+      case 'COMBO':
+        return 'TV + Internet';
+      case 'TV':
+        return 'Solo Televisión';
+      case 'CAMARA':
+        return 'Solo Cámara';
+      case 'INTERNET':
+      default:
+        return 'Solo Internet';
+    }
+  }
+
+  /// Orden creada manualmente en el panel (no sincronizada desde Enlace).
+  bool get esOrdenManual => !esEnlace;
+
   String get tipoOrdenLabel {
     if (tipoOrden == null || tipoOrden!.trim().isEmpty) return 'Sin tipo especificado';
     final trimmed = tipoOrden!.trim();
@@ -66,6 +123,8 @@ class OrderModel {
     this.clienteId,
     required this.nombreCliente,
     this.cedula,
+    this.codigoContrato,
+    this.planInternet,
     this.direccion,
     this.barrio,
     this.telefono,
@@ -73,6 +132,9 @@ class OrderModel {
     this.precinto,
     this.tipoOrden,
     this.tipoFuncion,
+    this.tipoServicio,
+    this.tipo,
+    this.esEnlace = true,
     this.solicitudSuscriptor,
     this.observacion,
     this.reportesNoc,
@@ -102,6 +164,11 @@ class OrderModel {
     final cliente = json['cliente'] as Map<String, dynamic>?;
     final tech = json['technician'] as Map<String, dynamic>?;
     final auxTech = json['tecnico_auxiliar'] as Map<String, dynamic>?;
+
+    String? cleanText(dynamic value) {
+      final text = value?.toString().trim() ?? '';
+      return text.isEmpty ? null : text;
+    }
 
     String? parseBarrio = json['barrio']?.toString();
     if (parseBarrio == null && cliente != null) {
@@ -136,6 +203,8 @@ class OrderModel {
       clienteId: json['cliente_id'],
       nombreCliente: json['nombre_cliente'] ?? cliente?['name'] ?? 'Sin Nombre',
       cedula: parseCedula,
+      codigoContrato: cleanText(json['codigo_contrato'] ?? cliente?['codigo_contrato']),
+      planInternet: cleanText(json['plan_internet'] ?? cliente?['plan_internet']),
       direccion: parseDireccion,
       barrio: parseBarrio,
       telefono: parseTelefono,
@@ -143,6 +212,9 @@ class OrderModel {
       precinto: json['precinto']?.toString(),
       tipoOrden: json['tipo_orden']?.toString(),
       tipoFuncion: json['tipo_funcion']?.toString(),
+      tipoServicio: json['tipo_servicio']?.toString(),
+      tipo: json['tipo']?.toString(),
+      esEnlace: json['es_enlace'] == true || json['es_enlace'] == 1 || json['es_enlace'] == '1',
       solicitudSuscriptor: json['solicitud_suscriptor']?.toString(),
       observacion: json['observacion']?.toString(),
       reportesNoc: json['reportes_noc']?.toString(),
