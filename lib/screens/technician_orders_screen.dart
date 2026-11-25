@@ -11,7 +11,14 @@ import 'order_detail_screen.dart';
 class TechnicianOrdersScreen extends StatefulWidget {
   final TechnicianModel technician;
 
-  const TechnicianOrdersScreen({super.key, required this.technician});
+  /// Tipo de orden elegido en la pantalla de selección de técnico.
+  final String? initialTipoOrden;
+
+  const TechnicianOrdersScreen({
+    super.key,
+    required this.technician,
+    this.initialTipoOrden,
+  });
 
   @override
   State<TechnicianOrdersScreen> createState() => _TechnicianOrdersScreenState();
@@ -32,13 +39,27 @@ class _TechnicianOrdersScreenState extends State<TechnicianOrdersScreen> with Si
   int _lastPage = 1;
   int _totalOrders = 0;
 
-  // Filtros rápidos (se aplican sobre las órdenes cargadas)
+  // Filtros rápidos (se aplican sobre todas las órdenes del técnico)
   String? _servicioFilter;
+  String? _tipoOrdenFilter; // código normalizado: '001', '025', ...
   bool _soloPrioridadAlta = false;
   bool _soloVencidas = false;
 
   bool get _hayFiltrosActivos =>
-      _servicioFilter != null || _soloPrioridadAlta || _soloVencidas;
+      _servicioFilter != null ||
+      _tipoOrdenFilter != null ||
+      _soloPrioridadAlta ||
+      _soloVencidas;
+
+  String _tipoOrdenLabel(String key) =>
+      key == 'SIN_TIPO' ? 'Sin tipo' : (OrderModel.tipoOrdenOptions[key] ?? key);
+
+  String _tipoOrdenKey(OrderModel order) {
+    final raw = (order.tipoOrden ?? '').trim().toUpperCase();
+    if (raw.isEmpty) return 'SIN_TIPO';
+    final match = RegExp(r'^(\d{3})').firstMatch(raw);
+    return match?.group(1) ?? raw;
+  }
 
   List<OrderModel> get _filteredOrders {
     return _orders.where((o) {
@@ -54,6 +75,9 @@ class _TechnicianOrdersScreenState extends State<TechnicianOrdersScreen> with Si
           _ => true,
         };
         if (!coincide) return false;
+      }
+      if (_tipoOrdenFilter != null && _tipoOrdenKey(o) != _tipoOrdenFilter) {
+        return false;
       }
       if (_soloPrioridadAlta && o.prioridad < 3) return false;
       if (_soloVencidas && !_isOverdue(o)) return false;
@@ -72,6 +96,7 @@ class _TechnicianOrdersScreenState extends State<TechnicianOrdersScreen> with Si
   void _limpiarFiltros() {
     setState(() {
       _servicioFilter = null;
+      _tipoOrdenFilter = null;
       _soloPrioridadAlta = false;
       _soloVencidas = false;
     });
@@ -85,6 +110,27 @@ class _TechnicianOrdersScreenState extends State<TechnicianOrdersScreen> with Si
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
+            if (_tipoOrdenFilter != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: InputChip(
+                  avatar: const Icon(Icons.assignment_outlined, size: 16, color: AppTheme.primary),
+                  label: Text(
+                    _tipoOrdenLabel(_tipoOrdenFilter!),
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primary,
+                    ),
+                  ),
+                  backgroundColor: AppTheme.primary.withAlpha(20),
+                  side: const BorderSide(color: AppTheme.primary, width: 1.2),
+                  onDeleted: () => setState(() => _tipoOrdenFilter = null),
+                  deleteIcon: const Icon(Icons.close_rounded, size: 16, color: AppTheme.primary),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
             _filterChip(
               label: 'Todos',
               icon: Icons.apps_rounded,
@@ -189,6 +235,7 @@ class _TechnicianOrdersScreenState extends State<TechnicianOrdersScreen> with Si
   @override
   void initState() {
     super.initState();
+    _tipoOrdenFilter = widget.initialTipoOrden;
     _tabController = TabController(length: _statusFilters.length, vsync: this);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {

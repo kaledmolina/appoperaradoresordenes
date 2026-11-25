@@ -77,11 +77,18 @@ class ApiService {
   }
 
   /// Obtiene la lista de técnicos y estadísticas globales para el operador
-  Future<Map<String, dynamic>> getTechnicians({String? search}) async {
-    String endpoint = '$baseUrl/v1/operators/technicians';
+  Future<Map<String, dynamic>> getTechnicians({String? search, String? tipoOrden}) async {
+    final queryParams = <String, String>{};
     if (search != null && search.trim().isNotEmpty) {
-      endpoint += '?search=${Uri.encodeComponent(search.trim())}';
+      queryParams['search'] = search.trim();
     }
+    if (tipoOrden != null && tipoOrden.trim().isNotEmpty) {
+      queryParams['tipo_orden'] = tipoOrden.trim();
+    }
+
+    final endpoint = Uri.parse('$baseUrl/v1/operators/technicians')
+        .replace(queryParameters: queryParams.isEmpty ? null : queryParams)
+        .toString();
 
     final response = await http.get(
       Uri.parse(endpoint),

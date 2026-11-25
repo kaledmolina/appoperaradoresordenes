@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../models/technician_model.dart';
+import '../models/order_model.dart';
 import '../theme/app_theme.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/technician_card.dart';
@@ -26,6 +27,10 @@ class _TechniciansScreenState extends State<TechniciansScreen> {
   Map<String, dynamic> _stats = {};
   bool _isLoading = true;
   String? _errorMessage;
+
+  /// Código del tipo de orden por el que se filtran los contadores y las
+  /// órdenes al entrar al técnico (null = todos los tipos).
+  String? _tipoOrdenFilter;
 
   @override
   void initState() {
@@ -64,7 +69,7 @@ class _TechniciansScreenState extends State<TechniciansScreen> {
     });
 
     try {
-      final result = await _apiService.getTechnicians();
+      final result = await _apiService.getTechnicians(tipoOrden: _tipoOrdenFilter);
       setState(() {
         _technicians = result['technicians'] as List<TechnicianModel>;
         _filteredTechnicians = _technicians;
@@ -258,6 +263,47 @@ class _TechniciansScreenState extends State<TechniciansScreen> {
                                       : null,
                                 ),
                               ),
+                              const SizedBox(height: 12),
+
+                              // Filtro por tipo de orden (antes de elegir técnico)
+                              DropdownButtonFormField<String>(
+                                initialValue: _tipoOrdenFilter ?? '',
+                                isExpanded: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Tipo de orden',
+                                  prefixIcon: Icon(Icons.assignment_outlined, size: 20, color: AppTheme.textSecondary),
+                                ),
+                                style: GoogleFonts.inter(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.textPrimary,
+                                ),
+                                items: [
+                                  DropdownMenuItem(
+                                    value: '',
+                                    child: Text(
+                                      'Todos los tipos de orden',
+                                      style: GoogleFonts.inter(fontSize: 14, color: AppTheme.textPrimary),
+                                    ),
+                                  ),
+                                  ...OrderModel.tipoOrdenOptions.entries.map(
+                                    (e) => DropdownMenuItem(
+                                      value: e.key,
+                                      child: Text(
+                                        e.value,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.inter(fontSize: 14, color: AppTheme.textPrimary),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                                onChanged: (value) {
+                                  setState(() {
+                                    _tipoOrdenFilter = (value == null || value.isEmpty) ? null : value;
+                                  });
+                                  _loadData();
+                                },
+                              ),
                               const SizedBox(height: 16),
 
                               // Section Header
@@ -320,7 +366,10 @@ class _TechniciansScreenState extends State<TechniciansScreen> {
                                   onTap: () {
                                     Navigator.of(context).push(
                                       MaterialPageRoute(
-                                        builder: (_) => TechnicianOrdersScreen(technician: tech),
+                                        builder: (_) => TechnicianOrdersScreen(
+                                          technician: tech,
+                                          initialTipoOrden: _tipoOrdenFilter,
+                                        ),
                                       ),
                                     );
                                   },
