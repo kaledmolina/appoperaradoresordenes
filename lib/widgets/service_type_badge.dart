@@ -126,13 +126,17 @@ class ServiceTypeBadge extends StatelessWidget {
         ),
       );
 
-  Widget _label(String text, Color color) => Text(
-        text,
-        style: GoogleFonts.inter(
-          color: color,
-          fontSize: compact ? 9 : 11,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.3,
+  Widget _label(String text, Color color) => Flexible(
+        child: Text(
+          text,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.inter(
+            color: color,
+            fontSize: compact ? 9 : 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.3,
+          ),
         ),
       );
 }

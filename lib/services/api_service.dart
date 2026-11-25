@@ -151,6 +151,45 @@ class ApiService {
     }
   }
 
+  /// Obtiene TODAS las órdenes del técnico recorriendo todas las páginas, para
+  /// que los filtros rápidos se apliquen sobre el total y no solo sobre la
+  /// primera página.
+  Future<Map<String, dynamic>> getAllTechnicianOrders(
+    int technicianId, {
+    String status = 'todas',
+    String? search,
+    int maxPages = 25,
+  }) async {
+    final all = <OrderModel>[];
+    var page = 1;
+    var lastPage = 1;
+    var total = 0;
+
+    do {
+      final result = await getTechnicianOrders(
+        technicianId,
+        status: status,
+        search: search,
+        page: page,
+      );
+
+      final pageOrders = result['orders'] as List<OrderModel>;
+      all.addAll(pageOrders);
+      lastPage = result['lastPage'] as int;
+      total = result['total'] as int;
+
+      if (pageOrders.isEmpty) break;
+      page++;
+    } while (page <= lastPage && page <= maxPages);
+
+    return {
+      'orders': all,
+      'currentPage': 1,
+      'lastPage': 1,
+      'total': total == 0 ? all.length : total,
+    };
+  }
+
   /// Obtiene el detalle completo de solo lectura de una orden
   Future<OrderModel> getOrderDetail(String numeroOrden) async {
     final uri = Uri.parse('$baseUrl/v1/operators/orders/$numeroOrden');

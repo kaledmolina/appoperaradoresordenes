@@ -32,6 +32,160 @@ class _TechnicianOrdersScreenState extends State<TechnicianOrdersScreen> with Si
   int _lastPage = 1;
   int _totalOrders = 0;
 
+  // Filtros rápidos (se aplican sobre las órdenes cargadas)
+  String? _servicioFilter;
+  bool _soloPrioridadAlta = false;
+  bool _soloVencidas = false;
+
+  bool get _hayFiltrosActivos =>
+      _servicioFilter != null || _soloPrioridadAlta || _soloVencidas;
+
+  List<OrderModel> get _filteredOrders {
+    return _orders.where((o) {
+      if (_servicioFilter != null) {
+        final tipo = o.tipoServicioNormalizado;
+        final coincide = switch (_servicioFilter) {
+          'INTERNET' => tipo == 'INTERNET',
+          'COMBO' => tipo == 'COMBO',
+          'CAMARA' => tipo == 'CAMARA' ||
+              tipo == 'INTERNET_AUTOMONITOREO' ||
+              tipo == 'COMBO_AUTOMONITOREO',
+          'MANUAL' => o.esOrdenManual,
+          _ => true,
+        };
+        if (!coincide) return false;
+      }
+      if (_soloPrioridadAlta && o.prioridad < 3) return false;
+      if (_soloVencidas && !_isOverdue(o)) return false;
+      return true;
+    }).toList();
+  }
+
+  bool _isOverdue(OrderModel order) {
+    final raw = order.deadlineAt;
+    if (raw == null || raw.trim().isEmpty) return false;
+    final deadline = DateTime.tryParse(raw.trim().replaceFirst(' ', 'T'));
+    if (deadline == null) return false;
+    return deadline.isBefore(DateTime.now().toUtc());
+  }
+
+  void _limpiarFiltros() {
+    setState(() {
+      _servicioFilter = null;
+      _soloPrioridadAlta = false;
+      _soloVencidas = false;
+    });
+  }
+
+  Widget _buildQuickFilters() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _filterChip(
+              label: 'Todos',
+              icon: Icons.apps_rounded,
+              selected: !_hayFiltrosActivos,
+              onSelected: _limpiarFiltros,
+            ),
+            _filterChip(
+              label: 'Solo Internet',
+              icon: Icons.wifi_rounded,
+              selected: _servicioFilter == 'INTERNET',
+              onSelected: () => setState(() {
+                _servicioFilter = _servicioFilter == 'INTERNET' ? null : 'INTERNET';
+              }),
+            ),
+            _filterChip(
+              label: 'TV + Internet',
+              icon: Icons.tv_rounded,
+              selected: _servicioFilter == 'COMBO',
+              onSelected: () => setState(() {
+                _servicioFilter = _servicioFilter == 'COMBO' ? null : 'COMBO';
+              }),
+            ),
+            _filterChip(
+              label: 'Cámara',
+              icon: Icons.videocam_rounded,
+              selected: _servicioFilter == 'CAMARA',
+              onSelected: () => setState(() {
+                _servicioFilter = _servicioFilter == 'CAMARA' ? null : 'CAMARA';
+              }),
+            ),
+            _filterChip(
+              label: 'Manuales',
+              icon: Icons.build_circle_outlined,
+              selected: _servicioFilter == 'MANUAL',
+              onSelected: () => setState(() {
+                _servicioFilter = _servicioFilter == 'MANUAL' ? null : 'MANUAL';
+              }),
+            ),
+            Container(
+              width: 1,
+              height: 24,
+              margin: const EdgeInsets.symmetric(horizontal: 6),
+              color: const Color(0xFFE2E8F0),
+            ),
+            _filterChip(
+              label: 'Prioridad alta',
+              icon: Icons.local_fire_department_rounded,
+              selected: _soloPrioridadAlta,
+              onSelected: () => setState(() {
+                _soloPrioridadAlta = !_soloPrioridadAlta;
+              }),
+            ),
+            _filterChip(
+              label: 'Vencidas',
+              icon: Icons.schedule_rounded,
+              selected: _soloVencidas,
+              onSelected: () => setState(() {
+                _soloVencidas = !_soloVencidas;
+              }),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _filterChip({
+    required String label,
+    required IconData icon,
+    required bool selected,
+    required VoidCallback onSelected,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        selected: selected,
+        onSelected: (_) => onSelected(),
+        avatar: Icon(
+          icon,
+          size: 16,
+          color: selected ? AppTheme.primary : AppTheme.textSecondary,
+        ),
+        label: Text(label),
+        labelStyle: GoogleFonts.inter(
+          fontSize: 12,
+          fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+          color: selected ? AppTheme.primary : AppTheme.textSecondary,
+        ),
+        showCheckmark: false,
+        backgroundColor: Colors.white,
+        selectedColor: AppTheme.primary.withAlpha(20),
+        side: BorderSide(
+          color: selected ? AppTheme.primary : const Color(0xFFE2E8F0),
+          width: selected ? 1.2 : 1,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        visualDensity: VisualDensity.compact,
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -63,11 +217,12 @@ class _TechnicianOrdersScreenState extends State<TechnicianOrdersScreen> with Si
 
     try {
       final currentStatus = _statusFilters[_tabController.index];
-      final result = await _apiService.getTechnicianOrders(
+      // Se traen todas las páginas para que los filtros rápidos cubran el total
+      // de órdenes del técnico y no solo la página visible.
+      final result = await _apiService.getAllTechnicianOrders(
         widget.technician.id,
         status: currentStatus,
         search: _searchController.text,
-        page: _currentPage,
       );
 
       setState(() {
@@ -203,18 +358,35 @@ class _TechnicianOrdersScreenState extends State<TechnicianOrdersScreen> with Si
             ),
           ),
 
+          _buildQuickFilters(),
+
           // Results count
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  _lastPage > 1
-                      ? 'Mostrando ${_orders.length} de $_totalOrders órdenes (Pág. $_currentPage de $_lastPage)'
-                      : 'Mostrando ${_orders.length} de $_totalOrders órdenes',
-                  style: GoogleFonts.inter(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w500),
+                Expanded(
+                  child: Text(
+                    _hayFiltrosActivos
+                        ? 'Mostrando ${_filteredOrders.length} de ${_orders.length} órdenes · filtros aplicados'
+                        : (_lastPage > 1
+                            ? 'Mostrando ${_orders.length} de $_totalOrders órdenes (Pág. $_currentPage de $_lastPage)'
+                            : 'Mostrando ${_orders.length} de $_totalOrders órdenes'),
+                    style: GoogleFonts.inter(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w500),
+                  ),
                 ),
+                if (_hayFiltrosActivos)
+                  TextButton.icon(
+                    onPressed: _limpiarFiltros,
+                    icon: const Icon(Icons.filter_alt_off_rounded, size: 15),
+                    label: Text('Limpiar', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600)),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: const Size(0, 32),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -249,15 +421,21 @@ class _TechnicianOrdersScreenState extends State<TechnicianOrdersScreen> with Si
                             ),
                           ),
                         )
-                      : _orders.isEmpty
+                      : _filteredOrders.isEmpty
                           ? Center(
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.inbox_outlined, size: 54, color: Colors.grey.shade400),
+                                  Icon(
+                                    _hayFiltrosActivos ? Icons.filter_alt_off_rounded : Icons.inbox_outlined,
+                                    size: 54,
+                                    color: Colors.grey.shade400,
+                                  ),
                                   const SizedBox(height: 12),
                                   Text(
-                                    'No hay órdenes en este estado',
+                                    _hayFiltrosActivos
+                                        ? 'Ninguna orden coincide con los filtros'
+                                        : 'No hay órdenes en este estado',
                                     style: GoogleFonts.outfit(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
@@ -266,17 +444,27 @@ class _TechnicianOrdersScreenState extends State<TechnicianOrdersScreen> with Si
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    'El técnico no tiene órdenes asignadas aquí',
+                                    _hayFiltrosActivos
+                                        ? 'Prueba con otro filtro o quítalos'
+                                        : 'El técnico no tiene órdenes asignadas aquí',
                                     style: GoogleFonts.inter(fontSize: 13, color: AppTheme.textSecondary),
                                   ),
+                                  if (_hayFiltrosActivos) ...[
+                                    const SizedBox(height: 12),
+                                    OutlinedButton.icon(
+                                      onPressed: _limpiarFiltros,
+                                      icon: const Icon(Icons.filter_alt_off_rounded, size: 16),
+                                      label: Text('Limpiar filtros', style: GoogleFonts.inter(fontSize: 13)),
+                                    ),
+                                  ],
                                 ],
                               ),
                             )
                           : ListView.builder(
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              itemCount: _orders.length,
+                              itemCount: _filteredOrders.length,
                               itemBuilder: (context, index) {
-                                final order = _orders[index];
+                                final order = _filteredOrders[index];
                                 return OrderCard(
                                   order: order,
                                   onTap: () {
